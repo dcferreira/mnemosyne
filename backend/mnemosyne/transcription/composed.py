@@ -51,6 +51,7 @@ class ComposedEngine:
         echo_dedup: bool = True,
         echo_similarity: float = 0.8,
         mic_speech_gate: bool = True,
+        language_from_remote: bool = False,
     ):
         self.transcriber = transcriber
         self.diarizer = diarizer
@@ -60,6 +61,7 @@ class ComposedEngine:
         self.echo_dedup = echo_dedup
         self.echo_similarity = echo_similarity
         self.mic_speech_gate = mic_speech_gate
+        self.language_from_remote = language_from_remote
         self.last_speaker_embeddings: dict[str, list[float]] = {}
         self.last_dropped_echo: int = 0
         self.last_dropped_noise: int = 0
@@ -89,10 +91,13 @@ class ComposedEngine:
             await self.diarizer.unload()
 
     async def transcribe_source(
-        self, source: AudioSource, report: Callable[[str, float], None] | None = None
+        self,
+        source: AudioSource,
+        report: Callable[[str, float], None] | None = None,
+        language: str | None = None,
     ) -> tuple[list[TranscriptSegment], dict[str, list[float]]]:
         """Transcribe (and maybe diarize) one source. `report(stage, fraction)` gets this
-        source's own 0..1 progress."""
+        source's own 0..1 progress. `language` stands in for the configured one."""
         diarize = source.speaker_label is None and self.diarizer is not None
         share = 0.7 if diarize else 1.0
         kind = "" if source.kind == "mixed" else f"{source.kind} "
@@ -102,7 +107,7 @@ class ComposedEngine:
                 report(f"Transcribing {kind}audio", share * f)
 
         segments = await self.transcriber.transcribe(
-            source.path, language=self.language, progress=t_progress
+            source.path, language=language or self.language, progress=t_progress
         )
         if source.speaker_label is not None:
             return relabel(segments, source.speaker_label), {}
@@ -146,6 +151,13 @@ class ComposedEngine:
         labelled: list[TranscriptSegment] = []
         diarized: list[TranscriptSegment] = []
         weights = source_weights(sources)
+        if self.language_from_remote:
+            # Remote (unlabelled) audio first, so the language it reveals can be used for the
+            # mic, where an accent can mislead detection. Stable; weights stay with their source.
+            order = sorted(range(len(sources)), key=lambda i: sources[i].speaker_label is not None)
+            sources = [sources[i] for i in order]
+            weights = [weights[i] for i in order]
+        language = self.language
         loop = asyncio.get_running_loop()
         done = 0.0
         for source, weight in zip(sources, weights, strict=True):
@@ -156,7 +168,13 @@ class ComposedEngine:
                 if on_progress is not None:
                     loop.call_soon_threadsafe(on_progress, stage, base + weight * frac)
 
-            segments, embeddings = await self.transcribe_source(source, report)
+            segments, embeddings = await self.transcribe_source(source, report, language=language)
+            if language is None and self.language_from_remote:
+                language = getattr(self.transcriber, "last_language", None)
+                if language and source is not sources[-1]:
+                    logger.info(
+                        "Using language %s detected on the %s source", language, source.kind
+                    )
             if self.mic_speech_gate and source.speaker_label is not None and segments:
                 # Phantom lines from clicks and silence (transcription/speech_gate.py). The
                 # kept segments are the same objects: last_segment_sources relies on that.

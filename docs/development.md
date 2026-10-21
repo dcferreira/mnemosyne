@@ -195,6 +195,8 @@ HF_TOKEN=hf_your_token_here
 WHISPER_MODEL_SIZE=medium.en    # safe default; use large-v2 with 24GB+ VRAM
 WHISPER_COMPUTE_TYPE=float16    # or int8 for lower VRAM
 WHISPER_BATCH_SIZE=8            # lower for less VRAM usage
+WHISPER_SEQUENTIAL=false        # true: decode front to back (more accurate on sparse or non-English audio, slower)
+LANGUAGE_FROM_REMOTE=false      # true: detect the language on the remote audio and use it for the mic
 
 # LLM providers (at least one recommended)
 OLLAMA_URL=http://localhost:11434

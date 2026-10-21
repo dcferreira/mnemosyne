@@ -120,6 +120,7 @@
 				transcriber: v.transcriber,
 				diarizer: v.diarizer,
 				language: v.language,
+				language_from_remote: v.language_from_remote,
 				max_speakers: v.max_speakers,
 				local_speaker_name: v.local_speaker_name,
 				remote_speaker_name: v.remote_speaker_name,
@@ -149,6 +150,7 @@
 				whisper_model_size: v.whisper_model_size,
 				whisper_compute_type: v.whisper_compute_type,
 				whisper_batch_size: v.whisper_batch_size,
+				whisper_sequential: v.whisper_sequential,
 				parakeet_model: v.parakeet_model,
 				parakeet_quantization: v.parakeet_quantization,
 				onnx_provider: v.onnx_provider,
@@ -783,6 +785,11 @@
 							<span class={labelClass}>Batch size</span>
 							<input type="number" min="1" max="64" bind:value={form.whisper_batch_size} disabled={locked('whisper_batch_size')} class={inputClass} />
 						</label>
+						<label class="flex items-center gap-2">
+							<input type="checkbox" bind:checked={form.whisper_sequential} disabled={locked('whisper_sequential')} class="rounded border-gray-600 bg-gray-800" />
+							<span class="text-sm text-gray-300">Decode one piece at a time</span>
+							<span class="text-xs text-gray-500">More accurate on sparse or non-English audio, slower when re-transcribing many meetings</span>
+						</label>
 					{:else if form.transcriber === 'parakeet'}
 						<label>
 							<span class={labelClass}>Parakeet model (onnx-asr name)</span>
@@ -866,6 +873,11 @@
 					<label>
 						<span class={labelClass}>Language (blank = auto)</span>
 						<input type="text" bind:value={form.language} disabled={locked('language')} placeholder="en" class={inputClass} />
+					</label>
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={form.language_from_remote} disabled={locked('language_from_remote')} class="rounded border-gray-600 bg-gray-800" />
+						<span class="text-sm text-gray-300">Detect the language on the other people's audio</span>
+						<span class="text-xs text-gray-500">Used for your mic too when the language is blank: helps when your accent confuses detection</span>
 					</label>
 					<label>
 						<span class={labelClass}>Your name in transcripts (mic channel)</span>

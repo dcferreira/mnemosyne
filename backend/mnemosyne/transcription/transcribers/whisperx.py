@@ -21,6 +21,7 @@ class WhisperXTranscriber:
         compute_type: str = "float16",
         batch_size: int = 8,
         vad_method: str = "silero",
+        sequential: bool = False,
         initial_prompt: str | None = None,
     ):
         import torch  # heavy; only when this transcriber is chosen
@@ -30,9 +31,12 @@ class WhisperXTranscriber:
         self.compute_type = compute_type if self.device == "cuda" else "int8"
         self.batch_size = batch_size
         self.vad_method = vad_method
+        self.sequential = sequential
         self.initial_prompt = initial_prompt
         self._model: Any = None
         self._align: dict[str, tuple[Any, Any]] = {}
+        # Language Whisper detected (or was given) for the last transcribe() call.
+        self.last_language: str | None = None
 
     def is_loaded(self) -> bool:
         return self._model is not None
@@ -49,6 +53,17 @@ class WhisperXTranscriber:
         )
 
         def _load():
+            if self.sequential:
+                # faster-whisper on its own: WhisperX's batched pipeline decodes each merged ~30 s
+                # VAD window without timestamps and can stop after its first line or loop on a
+                # word, with no temperature fallback. WhisperX still aligns the words below.
+                import torch  # noqa: F401  loads the bundled CUDA libs (libcublas) for ctranslate2
+                from faster_whisper import WhisperModel
+
+                return WhisperModel(
+                    self.model_size, device=self.device, compute_type=self.compute_type
+                )
+
             import whisperx
 
             asr_options = {"initial_prompt": self.initial_prompt} if self.initial_prompt else None
@@ -80,12 +95,19 @@ class WhisperXTranscriber:
             import whisperx
 
             audio = whisperx.load_audio(audio_path)
-            # Transcription is ~85% of the work here, alignment the rest.
-            cb = (lambda pct: progress(0.85 * pct / 100.0)) if progress else None
-            result = self._model.transcribe(
-                audio, batch_size=self.batch_size, language=language or None, progress_callback=cb
-            )
+            if self.sequential:
+                result = self._transcribe_sequential(audio, language, progress)
+            else:
+                # Transcription is ~85% of the work here, alignment the rest.
+                cb = (lambda pct: progress(0.85 * pct / 100.0)) if progress else None
+                result = self._model.transcribe(
+                    audio,
+                    batch_size=self.batch_size,
+                    language=language or None,
+                    progress_callback=cb,
+                )
             lang = result.get("language", language or "en")
+            self.last_language = lang
             if lang not in self._align:
                 self._align[lang] = whisperx.load_align_model(
                     language_code=lang, device=self.device
@@ -105,6 +127,24 @@ class WhisperXTranscriber:
 
         raw = await asyncio.to_thread(_run)
         return [_to_segment(s) for s in raw if s.get("text", "").strip()]
+
+    def _transcribe_sequential(self, audio, language: str | None, progress) -> dict:
+        # VAD runs before language detection, so a silent start no longer reads as English.
+        # No conditioning on the previous text, so a hallucination loop cannot carry over.
+        pieces, info = self._model.transcribe(
+            audio,
+            language=language or None,
+            vad_filter=True,
+            condition_on_previous_text=False,
+            initial_prompt=self.initial_prompt,
+        )
+        segments = []
+        for piece in pieces:
+            if piece.text.strip():
+                segments.append({"start": piece.start, "end": piece.end, "text": piece.text})
+            if progress is not None and info.duration:
+                progress(0.85 * min(piece.end / info.duration, 1.0))
+        return {"segments": segments, "language": info.language}
 
 
 def _to_segment(seg: dict) -> TranscriptSegment:

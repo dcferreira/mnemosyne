@@ -84,6 +84,7 @@ def build_transcriber(
             compute_type=settings.whisper_compute_type,
             batch_size=settings.whisper_batch_size,
             vad_method=settings.whisper_vad,
+            sequential=settings.whisper_sequential,
             initial_prompt=initial_prompt(parse_glossary(settings.glossary)),
         )
     if kind == "parakeet":
@@ -255,6 +256,7 @@ def build_engine(settings: Settings) -> ComposedEngine:
         echo_dedup=settings.echo_dedup,
         echo_similarity=settings.echo_similarity,
         mic_speech_gate=settings.mic_speech_gate,
+        language_from_remote=settings.language_from_remote,
     )
 
 
@@ -265,6 +267,7 @@ ENGINE_SETTINGS = (
     "whisper_compute_type",
     "whisper_batch_size",
     "whisper_vad",
+    "whisper_sequential",
     "parakeet_model",
     "parakeet_quantization",
     "onnx_provider",
@@ -275,6 +278,7 @@ ENGINE_SETTINGS = (
     "diarization_model",
     "hf_token",
     "language",
+    "language_from_remote",
     "min_speakers",
     "max_speakers",
     "echo_dedup",
@@ -298,6 +302,7 @@ LIVE_SETTINGS = (
     "whisper_compute_type",
     "whisper_batch_size",
     "whisper_vad",
+    "whisper_sequential",
     "remote_stt_url",
     "remote_stt_model",
     "remote_stt_api_key",

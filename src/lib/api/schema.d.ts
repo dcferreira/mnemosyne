@@ -5648,6 +5648,8 @@ export interface components {
             keep_sharing_after_quit?: boolean | null;
             /** Language */
             language?: string | null;
+            /** Language From Remote */
+            language_from_remote?: boolean | null;
             /** Linear Api Key */
             linear_api_key?: string | null;
             /** Linear Team */
@@ -5802,6 +5804,8 @@ export interface components {
             whisper_compute_type?: string | null;
             /** Whisper Model Size */
             whisper_model_size?: string | null;
+            /** Whisper Sequential */
+            whisper_sequential?: boolean | null;
             /** Whisper Vad */
             whisper_vad?: string | null;
         };
@@ -5919,6 +5923,8 @@ export interface components {
             keep_sharing_after_quit: boolean;
             /** Language */
             language: string;
+            /** Language From Remote */
+            language_from_remote: boolean;
             /** Linear Api Key */
             linear_api_key: string;
             /** Linear Team */
@@ -6079,6 +6085,8 @@ export interface components {
             whisper_compute_type: string;
             /** Whisper Model Size */
             whisper_model_size: string;
+            /** Whisper Sequential */
+            whisper_sequential: boolean;
             /** Whisper Vad */
             whisper_vad: string;
         };

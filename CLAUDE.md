@@ -96,6 +96,11 @@ extra out uninstalls it; `onnx` is Parakeet). The `gpu` extra pulls torch
   first launch. Keep `backend/uv.lock` committed and in sync with `pyproject.toml`.
 - WhisperX's default pyannote VAD can report "no speech" on quiet recordings; the
   `whisper_vad` setting defaults to `silero` for that reason.
+- WhisperX's batched pipeline can lose whole lines on sparse audio and detects the language on the raw
+  first 30 s, before VAD (a silent start reads as English). `whisper_sequential` (off by default)
+  decodes with faster-whisper's own `vad_filter` instead, then aligns as before;
+  `language_from_remote` (off) transcribes the diarized sources first and reuses the language
+  detected there (`last_language`) for the mic, whose accent can mislead detection.
 - Parakeet defaults to the int8 model: the fp32 one uses an external-data file that ONNX
   Runtime refuses to follow through the HuggingFace cache symlink.
 - When testing a bundle with a fake `HOME`, put it on real disk (e.g. `~/.cache/...`), never

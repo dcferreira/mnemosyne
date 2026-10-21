@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     # auto: Nemotron with a GPU, else pyannote (with its token), else ONNX on the CPU.
     diarizer: str = "auto"  # auto | nemotron | pyannote | onnx | none (registry.resolve_diarizer)
     language: str = ""  # blank = auto-detect
+    # With several sources and no language set: detect it on the remote (diarized) audio and use
+    # it for the mic too, where an accent can mislead detection.
+    language_from_remote: bool = False
     min_speakers: int | None = None
     max_speakers: int | None = 10
     auto_transcribe: bool = True
@@ -185,6 +188,9 @@ class Settings(BaseSettings):
     whisper_compute_type: str = "float16"
     whisper_batch_size: int = 8
     whisper_vad: str = "silero"  # silero | pyannote
+    # Decode one file front to back with faster-whisper instead of WhisperX's batched windows:
+    # slower, but keeps lines batching drops on sparse audio and detects the language after VAD.
+    whisper_sequential: bool = False
 
     # parakeet transcriber (ONNX Runtime, no torch)
     parakeet_model: str = "nemo-parakeet-tdt-0.6b-v3"
